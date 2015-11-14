@@ -2,62 +2,67 @@ var vm = require('vm')
 var babel = require('babel-core')
 var assert = require('power-assert')
 
-function createSandbox () {
-  const exports = {}
-  const sandbox = {
-    exports,
-    module: { exports }
-  }
-
-  return sandbox
-}
-
-function testPlugin (options, fn) {
-  const fixture = `
-    let foo= 'bar'
-    export default 'baz'
-    export {foo}
-  `
-
-  const result = babel.transform(fixture, options)
-  const sandbox = createSandbox()
-
-  vm.runInNewContext(result.code, sandbox)
-
-  fn(sandbox.module.exports)
-}
-
 describe('babel-plugin-add-module-exports', () => {
-  it('should not export default to `module.exports` by default.', () =>
-    testPlugin({
-      presets: ['es2015']
-    }, (module) => {
-      assert(module.toString() !== 'baz')
-      assert(module.default === 'baz')
-      assert(module.foo === 'bar')
-    }))
-
-  it('should export default to `module.exports` with this plugin', () =>
-    testPlugin({
+  it('should not export default to `module.exports` if exists named declaration', () => {
+    var fixture = `
+      export default 'baz'
+      export let foo= 'bar'
+    `
+    var compiled = babel.transform(fixture, {
       presets: ['es2015'],
       plugins: ['../lib/index.js']
-    }, (module) => {
-      assert(module.toString() === 'baz') // need to invoke toString explicitly
-      assert(module.default === 'baz')
-      assert(module.foo === 'bar')
-    }))
+    })
 
-  it('should handle duplicated plugin references (#1)', () =>
-    testPlugin({
+    var sandbox = {
+      exports: {},
+      module: { exports: undefined }
+    }
+    vm.runInNewContext(compiled.code, sandbox)
+
+    assert(sandbox.exports.default === 'baz')
+    assert(sandbox.exports.foo === 'bar')
+    assert(sandbox.module.exports === undefined)
+  })
+
+  it('should export default directly to `module.exports` if only exists default declaration (#4)', () => {
+    var fixture = `
+      export default 'baz'
+    `
+    var compiled = babel.transform(fixture, {
+      presets: ['es2015'],
+      plugins: ['../lib/index.js']
+    })
+
+    var sandbox = {
+      exports: {},
+      module: { exports: undefined }
+    }
+    vm.runInNewContext(compiled.code, sandbox)
+
+    assert(sandbox.exports.foo === undefined)
+    assert(sandbox.module.exports === 'baz')
+  })
+
+  it('should handle duplicated plugin references (#1)', () => {
+    var fixture = `
+      export default 'baz'
+    `
+    var compiled = babel.transform(fixture, {
       presets: ['es2015'],
       plugins: [
         '../lib/index.js',
         '../lib/index.js',
         '../lib/index.js'
       ]
-    }, (module) => {
-      assert(module.toString() === 'baz') // need to invoke toString explicitly
-      assert(module.default === 'baz')
-      assert(module.foo === 'bar')
-    }))
+    })
+
+    var sandbox = {
+      exports: {},
+      module: { exports: undefined }
+    }
+    vm.runInNewContext(compiled.code, sandbox)
+
+    assert(sandbox.exports.foo === undefined)
+    assert(sandbox.module.exports === 'baz')
+  })
 })
