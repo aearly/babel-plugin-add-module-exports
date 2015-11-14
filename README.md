@@ -34,7 +34,6 @@ Why?
 // index.js
 let foo= 'bar'
 export default 'baz'
-export {foo}
 ```
 
 ```bash
@@ -50,17 +49,16 @@ babel index.js --presets es2015 --plugins transform-es2015-modules-commonjs > bu
 # });
 # var foo = 'bar';
 # exports.default = 'baz';
-# exports.foo = foo;
 ```
 
 Therefore, need to use the `.default` at NodeJS.
 
 ```js
-require('./bundle.js') // { default: 'baz', foo: 'bar' }
+require('./bundle.js') // { default: 'baz' }
 require('./bundle.js').default // 'baz'
 ```
 
-The `babel-plugin-add-module-exports` add the `module.exports` to EOF.
+This plugin add the `module.exports` if **only** the `export default` declaration exists.
 
 ```bash
 npm install babel-plugin-add-module-exports --save-dev
@@ -72,38 +70,13 @@ babel index.js --presets es2015 --plugins add-module-exports > bundle.js
 # });
 # var foo = 'bar';
 # exports.default = 'baz';
-# exports.foo = foo;
-# module.exports = Object.assign(exports.default || {}, exports);
+# module.exports = exports['default'];
 ```
 
 Therefore, `.default` is the unnecessary.
 
 ```js
-require('./bundle.js') // { [String: 'baz'] default: 'baz', foo: 'bar' }
-require('./bundle.js')+'' // baz
-```
-
-Can polyfill the `Object.assign`?
----
-
-See also [babel-plugin-transform-object-assign](https://github.com/babel/babel/tree/development/packages/babel-plugin-transform-object-assign).
-
-example:
-
-```bash
-npm install babel-plugin-transform-object-assign --save-dev
-babel index.js --presets es2015 --plugins add-module-exports,transform-object-assign > bundle.js
-# 'use strict';
-#
-# var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
-#
-# Object.defineProperty(exports, "__esModule", {
-#   value: true
-# });
-# var foo = 'bar';
-# exports.default = 'baz';
-# exports.foo = foo;
-# module.exports = _extends(exports.default || {}, exports);
+require('./bundle.js') // baz
 ```
 
 License
